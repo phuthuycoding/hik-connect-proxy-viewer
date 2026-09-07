@@ -6,7 +6,8 @@ name: Release
 #   push to master  -> images tagged `latest` and `sha-<commit>` on Docker Hub
 #   push tag vX.Y.Z -> images tagged `X.Y.Z` (+ latest) and the Helm chart version X.Y.Z on GHCR (OCI)
 #
-# Secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN (access token with write scope). GHCR uses GITHUB_TOKEN.
+# Secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN (access token, read/write/delete scope so descriptions can be updated too).
+# GHCR uses GITHUB_TOKEN.
 
 on:
   push:
@@ -65,6 +66,17 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,scope=${{ matrix.app }},mode=max
+
+      # Docker Hub page text (SEO): short description + apps/<app>/README.md. Needs a PAT with read/write/delete scope.
+      - name: Update Docker Hub description
+        if: github.ref == 'refs/heads/master'
+        uses: peter-evans/dockerhub-description@v5
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.DOCKERHUB_NAMESPACE }}/${{ env.IMAGE_BASENAME }}-${{ matrix.app }}
+          short-description: ${{ matrix.app == 'stream' && 'Hik-Connect/Hikvision SDK stream proxy: HCNetSDK to HLS via mediamtx, on demand, auto channels' || 'Web app for hik-connect-proxy-viewer: family password login, PWA, auto camera grid, HLS proxy' }}
+          readme-filepath: ./apps/${{ matrix.app }}/README.md
 
   chart:
     # The chart is versioned by the git tag so that chart appVersion == image tag
