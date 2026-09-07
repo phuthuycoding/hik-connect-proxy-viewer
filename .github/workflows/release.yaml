@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # GitHub Release on tags
   packages: write
 
 env:
@@ -105,3 +105,11 @@ jobs:
           helm package chart --version "$VERSION" --app-version "$VERSION" -d dist
           helm push dist/*.tgz "oci://ghcr.io/$OWNER/charts"
           echo "## Published chart hik-connect-proxy-viewer $VERSION" >> $GITHUB_STEP_SUMMARY
+
+      # GitHub Release with generated notes and the chart tarball attached (skipped if it already exists)
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 && exit 0
+          gh release create "$GITHUB_REF_NAME" dist/*.tgz --title "$GITHUB_REF_NAME" --generate-notes

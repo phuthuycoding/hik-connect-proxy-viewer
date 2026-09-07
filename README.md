@@ -1,7 +1,8 @@
 # hik-connect-proxy-viewer
 
 [![Release](https://img.shields.io/github/v/release/phuthuycoding/hik-connect-proxy-viewer?label=release)](https://github.com/phuthuycoding/hik-connect-proxy-viewer/releases)
-[![Docker Hub](https://img.shields.io/docker/pulls/phuthuycoding/hik-connect-proxy-viewer-stream?label=docker%20pulls)](https://hub.docker.com/r/phuthuycoding/hik-connect-proxy-viewer-stream)
+[![stream pulls](https://img.shields.io/docker/pulls/phuthuycoding/hik-connect-proxy-viewer-stream?label=stream%20pulls)](https://hub.docker.com/r/phuthuycoding/hik-connect-proxy-viewer-stream)
+[![web pulls](https://img.shields.io/docker/pulls/phuthuycoding/hik-connect-proxy-viewer-web?label=web%20pulls)](https://hub.docker.com/r/phuthuycoding/hik-connect-proxy-viewer-web)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Watch your kid's classroom cameras in a browser (or as a home-screen app) when the school only hands out a
@@ -82,7 +83,7 @@ This repository only **publishes artifacts** (images on Docker Hub, the chart on
 your cluster, domain or passwords, so it stays public and you install with one command and your own values:
 
 ```bash
-helm upgrade --install cam oci://ghcr.io/phuthuycoding/charts/hik-connect-proxy-viewer --version 0.1.1 \
+helm upgrade --install cam oci://ghcr.io/phuthuycoding/charts/hik-connect-proxy-viewer --version 0.2.0 \
   --namespace cam --create-namespace \
   --set hik.domain=recorder.example.net \
   --set hik.sdkPort=8000 \
@@ -123,7 +124,7 @@ Then open `https://<ingress.host>`, type the family password, and on a phone use
 | Trigger | Result |
 |---|---|
 | push to `master` | images `phuthuycoding/hik-connect-proxy-viewer-{stream,web}` tagged `latest` and `sha-<commit>` |
-| push tag `vX.Y.Z` | images tagged `X.Y.Z` (+ `latest`), chart `hik-connect-proxy-viewer` version `X.Y.Z` on GHCR |
+| push tag `vX.Y.Z` | images tagged `X.Y.Z` (+ `latest`), chart `hik-connect-proxy-viewer` version `X.Y.Z` on GHCR, a GitHub Release with generated notes and the chart tarball attached |
 
 The only secrets the workflow needs are `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`; GHCR uses the built-in
 `GITHUB_TOKEN`. To publish your own fork, change `DOCKERHUB_NAMESPACE` in `.github/workflows/release.yaml`.
