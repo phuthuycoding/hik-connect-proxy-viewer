@@ -22,7 +22,9 @@ never re-encoded.
 - **Auto-discovered channels.** `discover.py` logs in, tries every channel and keeps the ones the account may
   view (a 2-channel account shows 2 tiles, a 3-channel one shows 3). Names come from the recorder.
 - **One family password.** Enter it once; a signed (HMAC) cookie keeps you logged in for 30 days.
-- **PWA.** "Add to Home Screen" on iOS/Android opens it like an app. Double-tap a tile for full screen.
+- **PWA with player controls.** "Add to Home Screen" on iOS/Android opens it like an app. Each tile has
+  pause/play, back-to-live, snapshot, picture-in-picture and full screen (or double-tap); a LIVE/behind badge
+  shows latency. Coming back from the background re-syncs to live, and a watchdog reconnects stalled streams.
 - **Nothing proprietary in git or in the images.** Hikvision's SDK is downloaded from hikvision.com when the
   stream container starts (or from a URL you host).
 

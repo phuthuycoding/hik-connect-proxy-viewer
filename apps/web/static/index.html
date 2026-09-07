@@ -3,210 +3,51 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#111111">
+<meta name="theme-color" content="#171a1f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Camera lớp">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/static/icons/icon-180.png">
 <link rel="icon" href="/static/icons/icon-192.png">
+<link rel="stylesheet" href="/static/app.css">
 <title>Camera lớp</title>
-<style>
-  :root { color-scheme: dark; }
-  html, body { margin: 0; height: 100%; background: #111; color: #ddd; font-family: -apple-system, system-ui, sans-serif; }
-  [hidden] { display: none !important; }
-
-  /* Login */
-  .box { max-width: 320px; margin: 18vh auto 0; padding: 24px; background: #1c1c1c; border-radius: 10px; }
-  h1 { font-size: 20px; margin: 0 0 16px; }
-  label { display: block; font-size: 14px; margin-bottom: 6px; color: #aaa; }
-  input { width: 100%; box-sizing: border-box; font-size: 18px; padding: 10px 12px; border-radius: 6px;
-          border: 1px solid #444; background: #111; color: #eee; }
-  button { width: 100%; margin-top: 14px; font-size: 17px; padding: 11px; border: 0; border-radius: 6px;
-           background: #e0503c; color: #fff; cursor: pointer; }
-  button:disabled { opacity: .6; }
-  .err { color: #ff7b6b; font-size: 14px; margin-top: 10px; min-height: 18px; }
-  .hint { color: #777; font-size: 12px; margin-top: 14px; }
-
-  /* Grid: số cột theo số cam */
-  .grid { display: grid; gap: 6px; padding: 6px; height: 100%; box-sizing: border-box;
-          padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
-  .grid[data-count="1"] { grid-template-columns: 1fr; }
-  .grid[data-count="2"] { grid-template-columns: 1fr 1fr; }
-  .grid[data-count="3"], .grid[data-count="4"] { grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; }
-  .grid[data-count="5"], .grid[data-count="6"] { grid-template-columns: 1fr 1fr 1fr; grid-auto-rows: 1fr; }
-  .grid[data-count="7"], .grid[data-count="8"], .grid[data-count="9"] { grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; }
-  .grid[data-count="10"], .grid[data-count="11"], .grid[data-count="12"], .grid[data-count="13"], .grid[data-count="14"], .grid[data-count="15"], .grid[data-count="16"] { grid-template-columns: repeat(4, 1fr); grid-auto-rows: 1fr; }
-  @media (max-width: 800px) { .grid { grid-template-columns: 1fr !important; grid-auto-rows: 1fr; } }
-  .tile { position: relative; background: #000; border-radius: 6px; overflow: hidden; min-height: 0; }
-  .tile video { width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
-  .tile .label { position: absolute; top: 6px; left: 8px; font-size: 13px; padding: 2px 8px;
-                 background: rgba(0,0,0,.55); border-radius: 4px; pointer-events: none; }
-  .tile .status { position: absolute; bottom: 6px; left: 8px; font-size: 12px; color: #aaa; pointer-events: none; }
-  .tile:fullscreen { border-radius: 0; }
-  .empty { text-align: center; color: #888; margin-top: 30vh; }
-  .logout { position: fixed; z-index: 10; right: 10px; bottom: calc(8px + env(safe-area-inset-bottom)); font-size: 12px;
-            color: #666; background: none; border: 0; width: auto; margin: 0; padding: 4px 6px; }
-</style>
 </head>
 <body>
-<form class="box" id="login" hidden>
-  <h1>Camera lớp</h1>
-  <label for="password">Mật khẩu</label>
-  <input id="password" name="password" type="password" autocomplete="current-password" required>
-  <button type="submit" id="loginBtn">Vào xem</button>
-  <div class="err" id="err"></div>
-  <div class="hint">Nhập đúng một lần, máy này sẽ nhớ 30 ngày. Thêm vào màn hình chính để mở như app.</div>
-</form>
+<div class="login" id="login" hidden>
+  <form id="login-form">
+    <div class="brand">
+      <img src="/static/icons/icon-192.png" alt="">
+      <div><h1>Camera lớp</h1><div class="sub">Xem camera lớp của con</div></div>
+    </div>
+    <label for="password">Mật khẩu gia đình</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+    <button class="btn" type="submit" id="loginBtn">Vào xem</button>
+    <div class="err" id="err"></div>
+    <div class="hint">Nhập đúng một lần, máy này sẽ nhớ 30 ngày. Thêm trang vào màn hình chính để mở như app.</div>
+  </form>
+</div>
 
-<div id="view" hidden>
-  <div class="grid" id="grid"></div>
-  <button class="logout" id="logoutBtn">Đăng xuất</button>
+<div class="app" id="app" hidden>
+  <header class="topbar">
+    <img src="/static/icons/icon-192.png" alt="">
+    <span class="title">Camera lớp</span>
+    <span class="count" id="count"></span>
+    <span class="spacer"></span>
+    <button class="icon-btn" id="layoutBtn" title="Đổi bố cục">
+      <svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/></svg>
+    </button>
+    <button class="icon-btn" id="refreshBtn" title="Tải lại danh sách camera">
+      <svg class="i" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg>
+    </button>
+    <button class="icon-btn" id="logoutBtn" title="Đăng xuất">
+      <svg class="i" viewBox="0 0 24 24"><path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9"/></svg>
+    </button>
+  </header>
+  <main class="grid" id="grid"></main>
 </div>
 
 <script src="/static/hls.min.js"></script>
-<script>
-  const loginForm = document.getElementById("login");
-  const view = document.getElementById("view");
-  const grid = document.getElementById("grid");
-  const players = [];
-
-  async function api(path, options) {
-    const res = await fetch(path, { credentials: "same-origin", ...options });
-    if (res.status === 401) throw new Error("unauthorized");
-    if (!res.ok) throw new Error(`${path} -> ${res.status}`);
-    return res.json();
-  }
-
-  function showLogin(message) {
-    stopPlayers();
-    view.hidden = true;
-    loginForm.hidden = false;
-    document.getElementById("err").textContent = message || "";
-    document.getElementById("password").focus();
-  }
-
-  function stopPlayers() {
-    for (const p of players) p.destroy();
-    players.length = 0;
-    grid.innerHTML = "";
-  }
-
-  function setStatus(tile, text) {
-    tile.querySelector(".status").textContent = text;
-  }
-
-  function toggleFullscreen(tile, video) {
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-    } else if (tile.requestFullscreen) {
-      tile.requestFullscreen();
-    } else if (video.webkitEnterFullscreen) {
-      // iOS Safari chỉ cho full màn hình chính thẻ video
-      video.webkitEnterFullscreen();
-    }
-  }
-
-  function attach(tile, video, src) {
-    let retry = null;
-    const player = { destroy() { clearTimeout(retry); if (player.hls) player.hls.destroy(); video.removeAttribute("src"); } };
-    players.push(player);
-
-    const retryLater = (message) => {
-      setStatus(tile, message);
-      // Kênh chưa có stream (đang login đầu ghi) hoặc mạng rớt: thử lại sau 3 giây
-      retry = setTimeout(() => { if (player.hls) player.hls.destroy(); start(); }, 3000);
-    };
-
-    const start = () => {
-      if (Hls.isSupported()) {
-        const hls = new Hls({ liveSyncDurationCount: 3 });
-        player.hls = hls;
-        hls.loadSource(src);
-        hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => { setStatus(tile, ""); video.play().catch(() => {}); });
-        hls.on(Hls.Events.ERROR, (_, data) => {
-          if (!data.fatal) return;
-          if (data.response && data.response.code === 401) { showLogin("Phiên hết hạn, đăng nhập lại."); return; }
-          retryLater("Đang kết nối đầu ghi, thử lại...");
-        });
-      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-        // Safari iOS phát HLS native
-        video.src = src;
-        video.addEventListener("loadedmetadata", () => { setStatus(tile, ""); video.play().catch(() => {}); }, { once: true });
-        video.addEventListener("error", () => retryLater("Đang kết nối đầu ghi, thử lại..."), { once: true });
-      } else {
-        setStatus(tile, "Trình duyệt không hỗ trợ HLS");
-      }
-    };
-    start();
-  }
-
-  function renderCameras(cameras) {
-    stopPlayers();
-    grid.dataset.count = String(Math.min(cameras.length, 16));
-    if (cameras.length === 0) {
-      grid.innerHTML = '<div class="empty">Tài khoản chưa được xem kênh nào, hoặc đang dò kênh. Thử lại sau ít phút.</div>';
-      return;
-    }
-    for (const cam of cameras) {
-      const tile = document.createElement("div");
-      tile.className = "tile";
-      tile.innerHTML = `<video muted autoplay playsinline></video>
-                        <div class="label"></div>
-                        <div class="status">Đang kết nối...</div>`;
-      tile.querySelector(".label").textContent = cam.name;
-      grid.appendChild(tile);
-      const video = tile.querySelector("video");
-      tile.addEventListener("dblclick", () => toggleFullscreen(tile, video));
-      attach(tile, video, `/hls/ch${cam.channel}/index.m3u8`);
-    }
-  }
-
-  async function showView() {
-    loginForm.hidden = true;
-    view.hidden = false;
-    grid.innerHTML = '<div class="empty">Đang lấy danh sách camera...</div>';
-    try {
-      const data = await api("/api/cameras");
-      renderCameras(data.channels || []);
-    } catch (err) {
-      if (err.message === "unauthorized") return showLogin();
-      grid.innerHTML = '<div class="empty">Không lấy được danh sách camera. Kéo xuống để tải lại.</div>';
-    }
-  }
-
-  loginForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const btn = document.getElementById("loginBtn");
-    btn.disabled = true;
-    try {
-      await api("/api/login", { method: "POST", headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ password: document.getElementById("password").value }) });
-      document.getElementById("password").value = "";
-      await showView();
-    } catch (err) {
-      document.getElementById("err").textContent = err.message === "unauthorized" ? "Sai mật khẩu, thử lại." : "Không kết nối được máy chủ.";
-    } finally {
-      btn.disabled = false;
-    }
-  });
-
-  document.getElementById("logoutBtn").addEventListener("click", async () => {
-    await fetch("/api/logout", { method: "POST", credentials: "same-origin" }).catch(() => {});
-    showLogin();
-  });
-
-  // Quay lại app sau khi tắt màn hình: tải lại danh sách để mở lại luồng
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && !view.hidden) showView();
-  });
-
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
-  }
-
-  api("/api/session").then(showView).catch(() => showLogin());
-</script>
+<script src="/static/app.js"></script>
 </body>
 </html>

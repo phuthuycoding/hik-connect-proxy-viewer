@@ -1,6 +1,6 @@
 // Service worker tối thiểu để cài được PWA. Chỉ cache app shell; /api và /hls luôn đi mạng.
-const CACHE = "cam-shell-v1";
-const SHELL = ["/", "/static/hls.min.js", "/manifest.webmanifest", "/static/icons/icon-192.png", "/static/icons/icon-512.png"];
+const CACHE = "cam-shell-v2";
+const SHELL = ["/", "/static/app.js", "/static/app.css", "/static/hls.min.js", "/manifest.webmanifest", "/static/icons/icon-192.png", "/static/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));
