@@ -77,8 +77,16 @@ helm upgrade --install cam oci://ghcr.io/phuthuycoding/charts/hik-connect-proxy-
 
 One release gives you the stream proxy Deployment, the web Deployment, their Services, the Ingress
 (Traefik + cert-manager `letsencrypt-prod` by default) and one Secret. Every value above is `required`:
-forget one and helm refuses to install. To update, re-run with a newer `--version` (add `--reuse-values`
-to keep what you set before).
+forget one and helm refuses to install.
+
+To update, re-run with a newer `--version` and `--reset-then-reuse-values`: it keeps the values you set
+(`--set`/`-f`) but takes the new chart defaults. Plain `--reuse-values` freezes the old defaults too, so new
+chart fixes would silently not apply.
+
+```bash
+helm upgrade cam oci://ghcr.io/phuthuycoding/charts/hik-connect-proxy-viewer --version 0.1.1 \
+  --namespace cam --reset-then-reuse-values
+```
 
 | Value | Default | Purpose |
 |---|---|---|
@@ -124,6 +132,9 @@ The only secrets the workflow needs are `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKE
 - HLS is fMP4 with 2 s segments (matching the recorder GOP) so iOS Safari plays it; expect 6 to 10 s latency.
 - A channel the account is not allowed to view fails with `Not enough privilege (code: 2)` in the stream logs
   and is simply left out of the grid.
+- The stream container runs as UID 10001. mediamtx needs one inotify instance to watch its config and Linux
+  counts those per UID (`fs.inotify.max_user_instances`, often 128); as root on a busy node it died with
+  `couldn't initialize inotify: too many open files`. If you still hit it, raise the sysctl on the node.
 
 ## Hướng dẫn nhanh (tiếng Việt)
 
