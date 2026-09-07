@@ -12,3 +12,5 @@ node_modules/
 .wrangler/
 .playwright-mcp/
 IMG_*.png
+today-panel.png
+ui-*.png
