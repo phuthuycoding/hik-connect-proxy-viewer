@@ -2,8 +2,8 @@ apiVersion: v2
 name: hik-connect-proxy-viewer
 description: Watch Hikvision recorder channels shared through a Hik-Connect account in a browser. Deploys the SDK stream proxy (mediamtx) and the password-protected web app.
 type: application
-version: 0.1.0
-appVersion: 0.1.0
+version: 0.1.1
+appVersion: 0.1.1
 home: https://github.com/phuthuycoding/hik-connect-proxy-viewer
 sources:
   - https://github.com/phuthuycoding/hik-connect-proxy-viewer

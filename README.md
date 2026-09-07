@@ -1,5 +1,9 @@
 # hik-connect-proxy-viewer
 
+[![Release](https://img.shields.io/github/v/release/phuthuycoding/hik-connect-proxy-viewer?label=release)](https://github.com/phuthuycoding/hik-connect-proxy-viewer/releases)
+[![Docker Hub](https://img.shields.io/docker/pulls/phuthuycoding/hik-connect-proxy-viewer-stream?label=docker%20pulls)](https://hub.docker.com/r/phuthuycoding/hik-connect-proxy-viewer-stream)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 Watch your kid's classroom cameras in a browser (or as a home-screen app) when the school only hands out a
 Hikvision recorder account that works in the Hik-Connect app but is refused on RTSP.
 
@@ -31,19 +35,31 @@ chart/         ONE Helm chart deploying both (stream Deployment + web Deployment
                chart/files/mediamtx.yml is also what docker compose mounts
 infra/         Caddyfile for docker compose (TLS + reverse proxy); not used on Kubernetes
 tools/         view_cam.py: play RTSP directly with ffplay, only useful if your account is allowed on RTSP
-.github/       Release workflow: images to Docker Hub, charts to GHCR (OCI) on git tags
+.github/       Release workflow: images to Docker Hub, chart to GHCR (OCI) on git tags
 ```
 
-## Images and charts
+## Requirements
+
+- A recorder account that works in the Hik-Connect app: its DDNS hostname (or IP), the SDK port the school
+  mapped (8000 by default), username and password.
+- Somewhere to run two small containers with outbound internet (to reach the recorder and, once, hikvision.com
+  for the SDK): Docker, or a Kubernetes cluster with an ingress controller (TLS via cert-manager optional).
+- An **x86_64** node for the stream container (the Hikvision SDK is amd64 only). On Apple Silicon, docker
+  compose runs it through Rosetta (`platform: linux/amd64`).
+
+Tested with a DS-7216 series NVR, k3s v1.34 on Ubuntu 22.04 (Traefik + cert-manager), Docker Desktop on macOS,
+iOS Safari and Android Chrome as viewers.
+
+## Images and chart
 
 | Artifact | Where |
 |---|---|
-| `phuthuycoding/hik-connect-proxy-viewer-stream` | Docker Hub, public, tags `sha-<git>` and `latest` |
-| `phuthuycoding/hik-connect-proxy-viewer-web` | Docker Hub, public |
+| `phuthuycoding/hik-connect-proxy-viewer-stream` | Docker Hub, public, tags `latest`, `sha-<git>`, `X.Y.Z` |
+| `phuthuycoding/hik-connect-proxy-viewer-web` | Docker Hub, public, same tags |
 | Helm chart `hik-connect-proxy-viewer` | `oci://ghcr.io/phuthuycoding/charts/hik-connect-proxy-viewer` |
 
-The stream image is x86_64 only (the SDK is). On Apple Silicon, docker compose runs it through Rosetta
-(`platform: linux/amd64`).
+Both containers run as non-root (stream as UID 10001, web as 1001). `helm show values` on the chart lists
+every option.
 
 ## Run locally (docker compose)
 
@@ -64,7 +80,7 @@ This repository only **publishes artifacts** (images on Docker Hub, the chart on
 your cluster, domain or passwords, so it stays public and you install with one command and your own values:
 
 ```bash
-helm upgrade --install cam oci://ghcr.io/phuthuycoding/charts/hik-connect-proxy-viewer --version 0.1.0 \
+helm upgrade --install cam oci://ghcr.io/phuthuycoding/charts/hik-connect-proxy-viewer --version 0.1.1 \
   --namespace cam --create-namespace \
   --set hik.domain=recorder.example.net \
   --set hik.sdkPort=8000 \
@@ -84,9 +100,11 @@ To update, re-run with a newer `--version` and `--reset-then-reuse-values`: it k
 chart fixes would silently not apply.
 
 ```bash
-helm upgrade cam oci://ghcr.io/phuthuycoding/charts/hik-connect-proxy-viewer --version 0.1.1 \
+helm upgrade cam oci://ghcr.io/phuthuycoding/charts/hik-connect-proxy-viewer --version <newer> \
   --namespace cam --reset-then-reuse-values
 ```
+
+Then open `https://<ingress.host>`, type the family password, and on a phone use "Add to Home Screen".
 
 | Value | Default | Purpose |
 |---|---|---|
@@ -143,6 +161,7 @@ The only secrets the workflow needs are `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKE
 2. `docker compose up -d --build`, mở `http://localhost:8080`, nhập mật khẩu, thêm vào màn hình chính.
 3. Lên k3s: một lệnh `helm upgrade --install` ở mục "Deploy on Kubernetes" với giá trị riêng.
    Repo chỉ build image và chart, không chứa gì của cluster nhà mình.
+4. Nâng cấp: chạy lại với `--version` mới và `--reset-then-reuse-values` (giữ giá trị đã set, nhận default mới).
 
 ## Disclaimer
 

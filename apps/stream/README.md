@@ -46,6 +46,10 @@ list (`/channels`). Never run two replicas against the same account: each channe
 
 Platform: `linux/amd64` only (the SDK is x86_64). Tags: `latest`, `sha-<commit>`, `X.Y.Z`.
 
+Runs fine as non-root (`--user 10001:10001`; `/sdk` is world-writable in the image). Prefer that on shared
+Kubernetes nodes: mediamtx needs one inotify instance per process and Linux counts them per UID, so a root
+container on a busy node can hit `couldn't initialize inotify: too many open files`.
+
 ## Disclaimer
 
 For personal use with accounts you are authorized to use. Not affiliated with Hikvision; the Hikvision SDK

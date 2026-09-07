@@ -71,7 +71,7 @@
   </div>
 
   <h2>Install on Kubernetes</h2>
-<pre><code>helm upgrade --install cam oci://ghcr.io/phuthuycoding/charts/hik-connect-proxy-viewer --version 0.1.0 \
+<pre><code>helm upgrade --install cam oci://ghcr.io/phuthuycoding/charts/hik-connect-proxy-viewer --version 0.1.1 \
   --namespace cam --create-namespace \
   --set hik.domain=recorder.example.net \
   --set hik.sdkPort=8000 \
@@ -80,7 +80,7 @@
   --set web.password=FAMILY_PASSWORD \
   --set web.sessionSecret="$(openssl rand -hex 32)" \
   --set ingress.host=cam.example.com</code></pre>
-  <p>Every value above is required; the chart refuses to install without them. Defaults assume Traefik and cert-manager, both adjustable under <code>ingress.*</code>.</p>
+  <p>Every value above is required; the chart refuses to install without them. Defaults assume Traefik and cert-manager, both adjustable under <code>ingress.*</code>. To upgrade later, re-run with a newer <code>--version</code> and <code>--reset-then-reuse-values</code>.</p>
 
   <h2>Run with Docker Compose</h2>
 <pre><code>git clone https://github.com/phuthuycoding/hik-connect-proxy-viewer
