@@ -112,3 +112,6 @@ svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-widt
 .day-cam .strip img { height: 54px; border-radius: 5px; border: 2px solid transparent; flex: 0 0 auto; cursor: pointer; opacity: .85; }
 .day-cam .strip img.on { border-color: var(--accent); opacity: 1; }
 .today .empty { padding: 40px 20px; }
+
+/* Màn rộng: ảnh xem lại không trải hết chiều ngang */
+.today .day-cam { max-width: 960px; margin-left: auto; margin-right: auto; }
