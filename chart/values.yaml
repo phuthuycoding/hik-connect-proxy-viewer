@@ -56,8 +56,18 @@ stream:
     kubernetes.io/arch: amd64
   tolerations: []
   affinity: {}
-  podSecurityContext: {}
-  securityContext: {}
+  # Non-root with its own UID: Linux counts inotify instances per UID, and mediamtx needs one to watch its
+  # config. As root it would share the node-wide quota with every other root pod (seen: "too many open files").
+  podSecurityContext:
+    fsGroup: 10001
+  securityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    capabilities:
+      drop:
+        - ALL
 
 # Web app: login, session cookie, camera grid, HLS proxy
 web:

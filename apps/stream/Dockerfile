@@ -12,7 +12,9 @@ COPY --from=mediamtx /mediamtx /usr/local/bin/mediamtx
 # ctypes wrapper for HCNetSDK (MIT, see hikvision_sdk_src/LICENSE)
 COPY hikvision_sdk_src /opt/hikvision-sdk/src
 ENV PYTHONPATH=/opt/hikvision-sdk/src
-# Filled by entrypoint.sh at runtime; mount a volume here to keep the download across restarts
+# Filled by entrypoint.sh at runtime; mount a volume here to keep the download across restarts.
+# World-writable so the container can run as any non-root UID (a fresh named volume copies these perms).
+RUN mkdir -p /sdk && chmod 1777 /sdk
 ENV HIKVISION_SDK_PATH=/sdk/lib
 VOLUME ["/sdk"]
 
