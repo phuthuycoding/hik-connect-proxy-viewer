@@ -75,7 +75,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ env.DOCKERHUB_NAMESPACE }}/${{ env.IMAGE_BASENAME }}-${{ matrix.app }}
-          short-description: ${{ matrix.app == 'stream' && 'Hik-Connect/Hikvision SDK stream proxy: HCNetSDK to HLS via mediamtx, on demand, auto channels' || 'Web app for hik-connect-proxy-viewer: family password login, PWA, auto camera grid, HLS proxy' }}
+          short-description: "${{ matrix.app == 'stream' && 'Hik-Connect/Hikvision SDK stream proxy: HCNetSDK to HLS via mediamtx, on demand, auto channels' || 'Web app for hik-connect-proxy-viewer: family password login, PWA, auto camera grid, HLS proxy' }}"
           readme-filepath: ./apps/${{ matrix.app }}/README.md
 
   chart:
