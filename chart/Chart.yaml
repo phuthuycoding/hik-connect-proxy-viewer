@@ -1,6 +1,6 @@
 apiVersion: v2
-name: hik-stream
-description: Kéo stream đầu ghi Hikvision qua cổng SDK theo nhu cầu, phát HLS nội bộ bằng mediamtx
+name: hik-connect-proxy-viewer
+description: Watch Hikvision recorder channels shared through a Hik-Connect account in a browser. Deploys the SDK stream proxy (mediamtx) and the password-protected web app.
 type: application
 version: 0.1.0
 appVersion: 0.1.0
@@ -12,5 +12,7 @@ maintainers:
     email: tamanhquyen.it@gmail.com
 keywords:
   - hikvision
+  - hik-connect
   - mediamtx
   - hls
+  - camera

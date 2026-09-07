@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hik-connect-proxy-viewer: watch Hik-Connect cameras in a browser</title>
+<meta name="description" content="Self-hosted proxy that turns a Hikvision recorder account shared via Hik-Connect (SDK port only, RTSP refused) into an HLS web app with a family password, PWA and auto-discovered channels. Docker images + Helm chart.">
+<meta name="keywords" content="Hik-Connect, Hikvision, HCNetSDK, NVR, DVR, RTSP 401, HLS, mediamtx, Kubernetes, Helm chart, Docker, PWA, classroom camera, school camera, parent">
+<link rel="canonical" href="https://phuthuycoding.github.io/hik-connect-proxy-viewer/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="hik-connect-proxy-viewer">
+<meta property="og:description" content="Watch Hikvision channels shared through Hik-Connect in any browser or as a home-screen app. Open source, one Helm chart, public Docker images.">
+<meta property="og:url" content="https://phuthuycoding.github.io/hik-connect-proxy-viewer/">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "hik-connect-proxy-viewer",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Linux, Kubernetes, Docker",
+  "license": "https://opensource.org/licenses/MIT",
+  "codeRepository": "https://github.com/phuthuycoding/hik-connect-proxy-viewer",
+  "description": "Proxy Hikvision recorder channels shared via Hik-Connect (SDK port) to HLS, with a password-protected PWA web app. Docker images and a Helm chart."
+}
+</script>
+<style>
+  :root { color-scheme: light dark; --accent: #e0503c; --bg: #fff; --fg: #1a1a1a; --muted: #666; --card: #f6f6f6; --code: #f0f0f0; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111; --fg: #e6e6e6; --muted: #9a9a9a; --card: #1c1c1c; --code: #1a1a1a; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 -apple-system, system-ui, Segoe UI, Roboto, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 20px 60px; }
+  h1 { font-size: 34px; margin: 0 0 8px; }
+  h2 { font-size: 22px; margin: 36px 0 12px; }
+  .lead { font-size: 18px; color: var(--muted); margin: 0 0 20px; }
+  .links a { display: inline-block; margin: 0 10px 10px 0; padding: 9px 14px; border-radius: 6px; background: var(--accent); color: #fff; text-decoration: none; font-weight: 600; }
+  .links a.alt { background: var(--card); color: var(--fg); border: 1px solid #8884; }
+  pre { background: var(--code); border: 1px solid #8883; border-radius: 8px; padding: 14px; overflow-x: auto; font-size: 13.5px; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .card { background: var(--card); border-radius: 8px; padding: 14px 16px; }
+  .card b { display: block; margin-bottom: 4px; }
+  .flow { background: var(--code); border-radius: 8px; padding: 12px 14px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; overflow-x: auto; white-space: nowrap; }
+  footer { margin-top: 48px; color: var(--muted); font-size: 14px; }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; }
+  td, th { text-align: left; padding: 6px 8px; border-bottom: 1px solid #8883; vertical-align: top; }
+</style>
+</head>
+<body>
+<main>
+  <h1>hik-connect-proxy-viewer</h1>
+  <p class="lead">Watch the Hikvision cameras a school shared with you through Hik-Connect, in any browser or as a home-screen app. Self-hosted, open source, one Helm chart.</p>
+  <p class="links">
+    <a href="https://github.com/phuthuycoding/hik-connect-proxy-viewer">GitHub</a>
+    <a class="alt" href="https://hub.docker.com/r/phuthuycoding/hik-connect-proxy-viewer-stream">Docker Hub</a>
+    <a class="alt" href="https://github.com/phuthuycoding/hik-connect-proxy-viewer/pkgs/container/charts%2Fhik-connect-proxy-viewer">Helm chart (GHCR)</a>
+  </p>
+
+  <h2>The problem it solves</h2>
+  <p>Non-admin Hikvision recorder accounts often work in the Hik-Connect app but get <code>401 Unauthorized</code> on RTSP. The app talks to the recorder through Hikvision's proprietary <strong>SDK port</strong> (8000 by default), which browsers, VLC and ffmpeg cannot use. This project runs Hikvision's <code>HCNetSDK</code> on a small Linux service, pulls the stream, and re-publishes it as HLS behind a password.</p>
+  <div class="flow">[recorder] --SDK port--> stream (mediamtx + HCNetSDK) --HLS--> web (login, PWA) --HTTPS--> phones</div>
+
+  <h2>Features</h2>
+  <div class="grid">
+    <div class="card"><b>On demand</b>No viewer, no login to the recorder. The first viewer starts the stream, others share it, it stops when everyone leaves.</div>
+    <div class="card"><b>Auto-discovered channels</b>Probes every channel and shows only the ones your account may view, with the names from the recorder.</div>
+    <div class="card"><b>One family password</b>Type it once; a signed cookie remembers the device for 30 days.</div>
+    <div class="card"><b>PWA</b>Add to Home Screen on iPhone or Android, double-tap a tile for full screen.</div>
+    <div class="card"><b>No re-encoding</b>The SDK output is MPEG-PS that ffmpeg already understands; it is only remuxed.</div>
+    <div class="card"><b>Nothing proprietary shipped</b>Hikvision's SDK is downloaded when the container starts, so the repo and images stay clean.</div>
+  </div>
+
+  <h2>Install on Kubernetes</h2>
+<pre><code>helm upgrade --install cam oci://ghcr.io/phuthuycoding/charts/hik-connect-proxy-viewer --version 0.1.0 \
+  --namespace cam --create-namespace \
+  --set hik.domain=recorder.example.net \
+  --set hik.sdkPort=8000 \
+  --set hik.user=USER \
+  --set hik.password=PASS \
+  --set web.password=FAMILY_PASSWORD \
+  --set web.sessionSecret="$(openssl rand -hex 32)" \
+  --set ingress.host=cam.example.com</code></pre>
+  <p>Every value above is required; the chart refuses to install without them. Defaults assume Traefik and cert-manager, both adjustable under <code>ingress.*</code>.</p>
+
+  <h2>Run with Docker Compose</h2>
+<pre><code>git clone https://github.com/phuthuycoding/hik-connect-proxy-viewer
+cd hik-connect-proxy-viewer
+cp .env.example .env   # recorder account, family password, session secret
+docker compose up -d --build
+open http://localhost:8080</code></pre>
+
+  <h2>Artifacts</h2>
+  <table>
+    <tr><th>What</th><th>Where</th></tr>
+    <tr><td>Stream image</td><td><code>phuthuycoding/hik-connect-proxy-viewer-stream</code> on Docker Hub</td></tr>
+    <tr><td>Web image</td><td><code>phuthuycoding/hik-connect-proxy-viewer-web</code> on Docker Hub</td></tr>
+    <tr><td>Helm chart</td><td><code>oci://ghcr.io/phuthuycoding/charts/hik-connect-proxy-viewer</code></td></tr>
+  </table>
+
+  <footer>
+    <p>Written for personal use: a parent watching the classroom cameras the school deliberately shared. Use it only with accounts you are authorized to use and follow your local privacy rules. Not affiliated with Hikvision; the Hikvision SDK is proprietary and downloaded from hikvision.com under its own terms. MIT licensed, provided as is.</p>
+  </footer>
+</main>
+</body>
+</html>

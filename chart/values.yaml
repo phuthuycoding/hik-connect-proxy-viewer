@@ -1,0 +1,102 @@
+# One release = stream proxy + web app. Only the values marked REQUIRED have to be set:
+#
+#   helm upgrade --install cam oci://ghcr.io/phuthuycoding/charts/hik-connect-proxy-viewer \
+#     --set hik.domain=recorder.example.net --set hik.sdkPort=8000 --set hik.user=USER --set hik.password=PASS \
+#     --set web.password=FAMILY_PASSWORD --set web.sessionSecret="$(openssl rand -hex 32)" \
+#     --set ingress.host=cam.example.com
+
+# Recorder (NVR/DVR) account handed out by the school
+hik:
+  domain: ""          # REQUIRED: DDNS hostname or IP of the recorder
+  sdkPort: "8000"     # SDK port; schools often map it to another port
+  user: ""            # REQUIRED
+  password: ""        # REQUIRED
+  sub: "0"            # "1" = sub stream (lighter), "0" = main stream
+
+ingress:
+  enabled: true
+  className: "traefik"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  host: cam.example.com   # REQUIRED when ingress.enabled
+  # TLS via cert-manager; set to "" to serve plain HTTP
+  tlsSecretName: hik-connect-proxy-viewer-tls
+
+# Stream proxy: mediamtx + pull_stream.py + discover.py. Never more than one replica (one SDK session per channel).
+stream:
+  image:
+    # Public image, contains no Hikvision code: the SDK is downloaded into /sdk when the pod starts
+    repository: docker.io/phuthuycoding/hik-connect-proxy-viewer-stream
+    pullPolicy: Always
+    tag: ""             # defaults to the chart appVersion
+  # Optional: URL of the Hikvision SDK zip you host yourself. Empty = download from hikvision.com at pod start.
+  sdkZipUrl: ""
+  # The SDK download (~70MB) lands here; emptyDir means one download per pod start
+  sdkVolume:
+    emptyDir: {}
+  # Re-probe which channels the account may view (seconds)
+  discoverRefreshSeconds: "21600"
+  # ffmpeg inside the pod publishes RTSP to mediamtx in the same pod; declared in files/mediamtx.yml
+  publish:
+    user: puller
+    password: puller-secret
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  # Startup waits for the SDK download; liveness/readiness probe the HLS port
+  startupProbe:
+    periodSeconds: 5
+    failureThreshold: 60
+  # The SDK is x86_64 only
+  nodeSelector:
+    kubernetes.io/arch: amd64
+  tolerations: []
+  affinity: {}
+  podSecurityContext: {}
+  securityContext: {}
+
+# Web app: login, session cookie, camera grid, HLS proxy
+web:
+  password: ""        # REQUIRED: the family password typed on the login screen
+  sessionSecret: ""   # REQUIRED: random string (openssl rand -hex 32); changing it logs everyone out
+  replicaCount: 1
+  image:
+    repository: docker.io/phuthuycoding/hik-connect-proxy-viewer-web
+    pullPolicy: Always
+    tag: ""             # defaults to the chart appVersion
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podSecurityContext:
+    fsGroup: 1001
+  securityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 1001
+    runAsGroup: 1001
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+
+# e.g. --set imagePullSecrets[0].name=my-registry-secret (not needed for Docker Hub public images)
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}
+  name: ""

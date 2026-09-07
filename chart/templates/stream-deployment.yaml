@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hcpv.streamName" . }}
+  labels:
+    {{- include "hcpv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: stream
+spec:
+  # One replica, Recreate: every channel is one SDK session on the recorder; two pods = duplicate logins
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "hcpv.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: stream
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+      labels:
+        {{- include "hcpv.labels" . | nindent 8 }}
+        app.kubernetes.io/component: stream
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "hcpv.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.stream.podSecurityContext | nindent 8 }}
+      containers:
+        - name: stream
+          securityContext:
+            {{- toYaml .Values.stream.securityContext | nindent 12 }}
+          image: "{{ .Values.stream.image.repository }}:{{ .Values.stream.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.stream.image.pullPolicy }}
+          ports:
+            - name: hls
+              containerPort: 8888
+              protocol: TCP
+            - name: discovery
+              containerPort: 9000
+              protocol: TCP
+          startupProbe:
+            tcpSocket:
+              port: hls
+            periodSeconds: {{ .Values.stream.startupProbe.periodSeconds }}
+            failureThreshold: {{ .Values.stream.startupProbe.failureThreshold }}
+          livenessProbe:
+            tcpSocket:
+              port: hls
+            periodSeconds: 15
+          readinessProbe:
+            tcpSocket:
+              port: hls
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.stream.resources | nindent 12 }}
+          env:
+            - name: HIK_DOMAIN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hcpv.fullname" . }}-secrets
+                  key: hik-domain
+            - name: HIK_SDK_PORT
+              value: {{ .Values.hik.sdkPort | quote }}
+            - name: HIK_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hcpv.fullname" . }}-secrets
+                  key: hik-user
+            - name: HIK_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hcpv.fullname" . }}-secrets
+                  key: hik-password
+            - name: HIK_SUB
+              value: {{ .Values.hik.sub | quote }}
+            - name: MTX_PUBLISH_BASE
+              value: "rtsp://{{ .Values.stream.publish.user }}:{{ .Values.stream.publish.password }}@127.0.0.1:8554"
+            - name: DISCOVER_REFRESH_SECONDS
+              value: {{ .Values.stream.discoverRefreshSeconds | quote }}
+            {{- if .Values.stream.sdkZipUrl }}
+            - name: HCNETSDK_ZIP_URL
+              value: {{ .Values.stream.sdkZipUrl | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: mediamtx-config
+              mountPath: /mediamtx.yml
+              subPath: mediamtx.yml
+              readOnly: true
+            - name: sdk
+              mountPath: /sdk
+      volumes:
+        - name: mediamtx-config
+          configMap:
+            name: {{ include "hcpv.streamName" . }}-config
+        - name: sdk
+          {{- toYaml .Values.stream.sdkVolume | nindent 10 }}
+      {{- with .Values.stream.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.stream.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.stream.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

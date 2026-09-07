@@ -1,14 +1,14 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "hik-web.name" -}}
+{{- define "hcpv.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Create a default fully qualified app name.
 */}}
-{{- define "hik-web.fullname" -}}
+{{- define "hcpv.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -24,16 +24,16 @@ Create a default fully qualified app name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "hik-web.chart" -}}
+{{- define "hcpv.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "hik-web.labels" -}}
-helm.sh/chart: {{ include "hik-web.chart" . }}
-{{ include "hik-web.selectorLabels" . }}
+{{- define "hcpv.labels" -}}
+helm.sh/chart: {{ include "hcpv.chart" . }}
+{{ include "hcpv.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -41,19 +41,30 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 {{/*
-Selector labels
+Selector labels (a component label is added per Deployment/Service)
 */}}
-{{- define "hik-web.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "hik-web.name" . }}
+{{- define "hcpv.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "hcpv.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Resource names of the two components
+*/}}
+{{- define "hcpv.streamName" -}}
+{{- printf "%s-stream" (include "hcpv.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{- define "hcpv.webName" -}}
+{{- printf "%s-web" (include "hcpv.fullname" .) | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "hik-web.serviceAccountName" -}}
+{{- define "hcpv.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "hik-web.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "hcpv.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}

@@ -1,10 +1,10 @@
 name: Release
 
-# This repo only publishes artifacts. Deploying is your business: install the charts with your own values
-# (see deploy/). Nothing here knows about your cluster, domain or passwords.
+# This repo only publishes artifacts. Deploying is your business: install the chart with your own values
+# (see README). Nothing here knows about your cluster, domain or passwords.
 #
 #   push to master  -> images tagged `latest` and `sha-<commit>` on Docker Hub
-#   push tag vX.Y.Z -> images tagged `X.Y.Z` (+ latest) and Helm charts version X.Y.Z on GHCR (OCI)
+#   push tag vX.Y.Z -> images tagged `X.Y.Z` (+ latest) and the Helm chart version X.Y.Z on GHCR (OCI)
 #
 # Secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN (access token with write scope). GHCR uses GITHUB_TOKEN.
 
@@ -66,8 +66,8 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,scope=${{ matrix.app }},mode=max
 
-  charts:
-    # Charts are versioned by the git tag so that chart appVersion == image tag
+  chart:
+    # The chart is versioned by the git tag so that chart appVersion == image tag
     if: startsWith(github.ref, 'refs/tags/v')
     needs: images
     runs-on: ubuntu-latest
@@ -87,13 +87,9 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           OWNER="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
+          helm lint chart --set hik.domain=x --set hik.user=x --set hik.password=x \
+            --set web.password=x --set web.sessionSecret=x
           mkdir -p dist
-          for CHART in apps/stream/chart apps/web/chart; do
-            helm lint "$CHART"
-            helm package "$CHART" --version "$VERSION" --app-version "$VERSION" -d dist
-          done
-          for PKG in dist/*.tgz; do
-            helm push "$PKG" "oci://ghcr.io/$OWNER/charts"
-          done
-          echo "## Published charts $VERSION" >> $GITHUB_STEP_SUMMARY
-          ls dist >> $GITHUB_STEP_SUMMARY
+          helm package chart --version "$VERSION" --app-version "$VERSION" -d dist
+          helm push dist/*.tgz "oci://ghcr.io/$OWNER/charts"
+          echo "## Published chart hik-connect-proxy-viewer $VERSION" >> $GITHUB_STEP_SUMMARY

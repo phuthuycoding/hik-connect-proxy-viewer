@@ -9,7 +9,7 @@ services:
     environment:
       MTX_PUBLISH_BASE: "rtsp://puller:puller-secret@127.0.0.1:8554"
     volumes:
-      - ./apps/stream/chart/files/mediamtx.yml:/mediamtx.yml:ro
+      - ./chart/files/mediamtx.yml:/mediamtx.yml:ro
       # SDK Hikvision tải lúc khởi động lần đầu, giữ lại trong volume để không tải lại
       - stream_sdk:/sdk
 

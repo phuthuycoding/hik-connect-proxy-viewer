@@ -1,5 +1,5 @@
 # mediamtx config. Keys not listed here keep mediamtx defaults.
-# Local: mounted into the container (docker compose restart stream). K8s: ConfigMap from the chart.
+# Local: mounted into the container (docker compose restart stream). K8s: ConfigMap rendered by chart/.
 logLevel: info
 
 authMethod: internal

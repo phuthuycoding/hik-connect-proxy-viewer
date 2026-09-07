@@ -25,9 +25,10 @@ never re-encoded.
 ## Layout
 
 ```
-apps/stream/   mediamtx + pull_stream.py (SDK -> ffmpeg -> RTSP publish), discover.py (channel list API),
-               get_sdk.sh (fetch SDK), chart/ (Helm), chart/files/mediamtx.yml
-apps/web/      app.py (aiohttp): /api/login, /api/session, /api/cameras, /hls/* proxy; static/ SPA + PWA; chart/ (Helm)
+apps/stream/   mediamtx + pull_stream.py (SDK -> ffmpeg -> RTSP publish), discover.py (channel list API), get_sdk.sh
+apps/web/      app.py (aiohttp): /api/login, /api/session, /api/cameras, /hls/* proxy; static/ SPA + PWA
+chart/         ONE Helm chart deploying both (stream Deployment + web Deployment, Services, Ingress, Secret);
+               chart/files/mediamtx.yml is also what docker compose mounts
 infra/         Caddyfile for docker compose (TLS + reverse proxy); not used on Kubernetes
 tools/         view_cam.py: play RTSP directly with ffplay, only useful if your account is allowed on RTSP
 .github/       Release workflow: images to Docker Hub, charts to GHCR (OCI) on git tags
@@ -39,7 +40,7 @@ tools/         view_cam.py: play RTSP directly with ffplay, only useful if your 
 |---|---|
 | `phuthuycoding/hik-connect-proxy-viewer-stream` | Docker Hub, public, tags `sha-<git>` and `latest` |
 | `phuthuycoding/hik-connect-proxy-viewer-web` | Docker Hub, public |
-| Helm charts `hik-stream`, `hik-web` | `oci://ghcr.io/phuthuycoding/charts/<name>` |
+| Helm chart `hik-connect-proxy-viewer` | `oci://ghcr.io/phuthuycoding/charts/hik-connect-proxy-viewer` |
 
 The stream image is x86_64 only (the SDK is). On Apple Silicon, docker compose runs it through Rosetta
 (`platform: linux/amd64`).
@@ -59,47 +60,42 @@ extracted `lib/` folder in `apps/stream/sdk/` (ignored by git) and it is picked 
 
 ## Deploy on Kubernetes
 
-This repository only **publishes artifacts** (images on Docker Hub, charts on GHCR). Nothing in it knows your
-cluster, domain or passwords, so it stays public and you install by hand with your own values.
+This repository only **publishes artifacts** (images on Docker Hub, the chart on GHCR). Nothing in it knows
+your cluster, domain or passwords, so it stays public and you install with one command and your own values:
 
 ```bash
-# recorder account handed out by the school (SDK port as they mapped it)
-helm upgrade --install hik-stream oci://ghcr.io/phuthuycoding/charts/hik-stream --version 0.1.0 \
+helm upgrade --install cam oci://ghcr.io/phuthuycoding/charts/hik-connect-proxy-viewer --version 0.1.0 \
   --namespace cam --create-namespace \
-  --set config.hik.domain=recorder.example.net \
-  --set config.hik.sdkPort=8000 \
-  --set config.hik.user=USER \
-  --set config.hik.password=PASS
-
-# web: family password, cookie key, public hostname (Traefik + cert-manager by default)
-helm upgrade --install hik-web oci://ghcr.io/phuthuycoding/charts/hik-web --version 0.1.0 \
-  --namespace cam \
-  --set ingress.host=cam.example.com \
-  --set config.camPassword=FAMILY_PASSWORD \
-  --set config.sessionSecret="$(openssl rand -hex 32)"
+  --set hik.domain=recorder.example.net \
+  --set hik.sdkPort=8000 \
+  --set hik.user=USER \
+  --set hik.password=PASS \
+  --set web.password=FAMILY_PASSWORD \
+  --set web.sessionSecret="$(openssl rand -hex 32)" \
+  --set ingress.host=cam.example.com
 ```
 
-Every secret above is `required` by the chart: forget one and helm refuses to install. To update, re-run the
-same commands with a newer `--version` (or `--set image.tag=latest`); Helm keeps the values you do not
-override with `--reuse-values`. Useful extras:
+One release gives you the stream proxy Deployment, the web Deployment, their Services, the Ingress
+(Traefik + cert-manager `letsencrypt-prod` by default) and one Secret. Every value above is `required`:
+forget one and helm refuses to install. To update, re-run with a newer `--version` (add `--reuse-values`
+to keep what you set before).
 
-| Value | Purpose |
-|---|---|
-| `config.hik.sub=1` | pull the sub stream (lighter) |
-| `config.sdkZipUrl=https://...` | fetch the Hikvision SDK from a URL you host instead of hikvision.com |
-| `sdkVolume.persistentVolumeClaim.claimName=...` | keep the SDK download across pod restarts (default `emptyDir`) |
-| `ingress.className`, `ingress.annotations`, `ingress.tlsSecretName` | adapt to your ingress / TLS setup |
-
-`hik-web` reaches `hik-stream` through the in-cluster services `hik-stream:8888` (HLS) and `hik-stream:9000`
-(channel list); if you rename the releases, set `config.hlsOrigin` / `config.discoveryOrigin` on `hik-web`.
-Keep `hik-stream` at one replica.
+| Value | Default | Purpose |
+|---|---|---|
+| `hik.sub` | `"0"` | `"1"` pulls the sub stream (lighter) |
+| `stream.sdkZipUrl` | `""` | fetch the Hikvision SDK from a URL you host instead of hikvision.com |
+| `stream.sdkVolume` | `emptyDir: {}` | e.g. `persistentVolumeClaim.claimName` to keep the SDK across restarts |
+| `stream.discoverRefreshSeconds` | `"21600"` | how often to re-probe which channels the account may view |
+| `ingress.className`, `ingress.annotations`, `ingress.tlsSecretName` | Traefik / cert-manager | adapt to your ingress and TLS |
+| `ingress.enabled=false` | | expose the `*-web` Service yourself |
+| `stream.image.tag`, `web.image.tag` | chart appVersion | pin or use `latest` |
 
 ### Release workflow
 
 | Trigger | Result |
 |---|---|
 | push to `master` | images `phuthuycoding/hik-connect-proxy-viewer-{stream,web}` tagged `latest` and `sha-<commit>` |
-| push tag `vX.Y.Z` | images tagged `X.Y.Z` (+ `latest`), charts `hik-stream`/`hik-web` version `X.Y.Z` on GHCR |
+| push tag `vX.Y.Z` | images tagged `X.Y.Z` (+ `latest`), chart `hik-connect-proxy-viewer` version `X.Y.Z` on GHCR |
 
 The only secrets the workflow needs are `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`; GHCR uses the built-in
 `GITHUB_TOKEN`. To publish your own fork, change `DOCKERHUB_NAMESPACE` in `.github/workflows/release.yaml`.
@@ -134,7 +130,7 @@ The only secrets the workflow needs are `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKE
 1. `cp .env.example .env`, điền tài khoản đầu ghi trường cấp (tên miền, cổng SDK, user, pass), mật khẩu cho
    gia đình và `SESSION_SECRET` ngẫu nhiên.
 2. `docker compose up -d --build`, mở `http://localhost:8080`, nhập mật khẩu, thêm vào màn hình chính.
-3. Lên k3s: chạy tay hai lệnh `helm upgrade --install` ở mục "Deploy on Kubernetes" với giá trị riêng.
+3. Lên k3s: một lệnh `helm upgrade --install` ở mục "Deploy on Kubernetes" với giá trị riêng.
    Repo chỉ build image và chart, không chứa gì của cluster nhà mình.
 
 ## Disclaimer

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "hcpv.streamName" . }}-config
+  labels:
+    {{- include "hcpv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: stream
+data:
+  mediamtx.yml: |
+    {{- .Files.Get "files/mediamtx.yml" | nindent 4 }}

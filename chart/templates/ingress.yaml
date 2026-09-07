@@ -2,9 +2,10 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "hik-web.fullname" . }}
+  name: {{ include "hcpv.webName" . }}
   labels:
-    {{- include "hik-web.labels" . | nindent 4 }}
+    {{- include "hcpv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
   {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -16,18 +17,18 @@ spec:
   {{- if .Values.ingress.tlsSecretName }}
   tls:
     - hosts:
-        - {{ .Values.ingress.host | quote }}
+        - {{ required "ingress.host is required when ingress.enabled" .Values.ingress.host | quote }}
       secretName: {{ .Values.ingress.tlsSecretName }}
   {{- end }}
   rules:
-    - host: {{ .Values.ingress.host | quote }}
+    - host: {{ required "ingress.host is required when ingress.enabled" .Values.ingress.host | quote }}
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: {{ include "hik-web.fullname" . }}
+                name: {{ include "hcpv.webName" . }}
                 port:
-                  number: {{ .Values.service.port }}
+                  number: 80
 {{- end }}
