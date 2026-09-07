@@ -1,0 +1,161 @@
+# hik-connect-proxy-viewer
+
+Watch your kid's classroom cameras in a browser (or as a home-screen app) when the school only hands out a
+Hikvision recorder account that works in the Hik-Connect app but is refused on RTSP.
+
+**How it works.** Non-admin Hikvision accounts are often allowed to view through the proprietary **SDK port**
+(8000 by default, schools usually map it elsewhere) while RTSP 554 answers `401`. Browsers and ffmpeg cannot
+speak that protocol, so a small Linux service uses Hikvision's `HCNetSDK` to pull the stream and re-publish it
+as HLS. The SDK output is MPEG-PS with an `IMKH` header that ffmpeg already understands, so it is remuxed,
+never re-encoded.
+
+```
+[recorder] --SDK port--> apps/stream (mediamtx + pull_stream.py + discover.py) --HLS, internal--> apps/web --HTTPS--> phones
+```
+
+- **On demand.** Nobody watching = no login to the recorder. The first viewer makes mediamtx start
+  `pull_stream.py` for that channel, later viewers share it, and ~35 s after the last viewer leaves it stops.
+- **Auto-discovered channels.** `discover.py` logs in, tries every channel and keeps the ones the account may
+  view (a 2-channel account shows 2 tiles, a 3-channel one shows 3). Names come from the recorder.
+- **One family password.** Enter it once; a signed (HMAC) cookie keeps you logged in for 30 days.
+- **PWA.** "Add to Home Screen" on iOS/Android opens it like an app. Double-tap a tile for full screen.
+- **Nothing proprietary in git or in the images.** Hikvision's SDK is downloaded from hikvision.com when the
+  stream container starts (or from a URL you host).
+
+## Layout
+
+```
+apps/stream/   mediamtx + pull_stream.py (SDK -> ffmpeg -> RTSP publish), discover.py (channel list API),
+               get_sdk.sh (fetch SDK), chart/ (Helm), chart/files/mediamtx.yml
+apps/web/      app.py (aiohttp): /api/login, /api/session, /api/cameras, /hls/* proxy; static/ SPA + PWA; chart/ (Helm)
+infra/         Caddyfile for docker compose (TLS + reverse proxy); not used on Kubernetes
+tools/         view_cam.py: play RTSP directly with ffplay, only useful if your account is allowed on RTSP
+.github/       Release workflow: images to Docker Hub, charts to GHCR (OCI) on git tags
+```
+
+## Images and charts
+
+| Artifact | Where |
+|---|---|
+| `phuthuycoding/hik-connect-proxy-viewer-stream` | Docker Hub, public, tags `sha-<git>` and `latest` |
+| `phuthuycoding/hik-connect-proxy-viewer-web` | Docker Hub, public |
+| Helm charts `hik-stream`, `hik-web` | `oci://ghcr.io/phuthuycoding/charts/<name>` |
+
+The stream image is x86_64 only (the SDK is). On Apple Silicon, docker compose runs it through Rosetta
+(`platform: linux/amd64`).
+
+## Run locally (docker compose)
+
+```bash
+cp .env.example .env    # HIK_DOMAIN, HIK_SDK_PORT, HIK_USER, HIK_PASS, CAM_PASSWORD, SESSION_SECRET
+docker compose up -d --build
+open http://localhost:8080
+docker compose logs -f stream    # SDK download, channel discovery, on-demand logins
+```
+
+First start downloads the SDK (~70 MB) into the `stream_sdk` volume. To use your own copy, put the zip or the
+extracted `lib/` folder in `apps/stream/sdk/` (ignored by git) and it is picked up instead; see
+`apps/stream/sdk/README.md`.
+
+## Deploy on Kubernetes
+
+This repository only **publishes artifacts** (images on Docker Hub, charts on GHCR). Nothing in it knows your
+cluster, domain or passwords, so it stays public and you install by hand with your own values.
+
+```bash
+# recorder account handed out by the school (SDK port as they mapped it)
+helm upgrade --install hik-stream oci://ghcr.io/phuthuycoding/charts/hik-stream --version 0.1.0 \
+  --namespace cam --create-namespace \
+  --set config.hik.domain=recorder.example.net \
+  --set config.hik.sdkPort=8000 \
+  --set config.hik.user=USER \
+  --set config.hik.password=PASS
+
+# web: family password, cookie key, public hostname (Traefik + cert-manager by default)
+helm upgrade --install hik-web oci://ghcr.io/phuthuycoding/charts/hik-web --version 0.1.0 \
+  --namespace cam \
+  --set ingress.host=cam.example.com \
+  --set config.camPassword=FAMILY_PASSWORD \
+  --set config.sessionSecret="$(openssl rand -hex 32)"
+```
+
+Every secret above is `required` by the chart: forget one and helm refuses to install. To update, re-run the
+same commands with a newer `--version` (or `--set image.tag=latest`); Helm keeps the values you do not
+override with `--reuse-values`. Useful extras:
+
+| Value | Purpose |
+|---|---|
+| `config.hik.sub=1` | pull the sub stream (lighter) |
+| `config.sdkZipUrl=https://...` | fetch the Hikvision SDK from a URL you host instead of hikvision.com |
+| `sdkVolume.persistentVolumeClaim.claimName=...` | keep the SDK download across pod restarts (default `emptyDir`) |
+| `ingress.className`, `ingress.annotations`, `ingress.tlsSecretName` | adapt to your ingress / TLS setup |
+
+`hik-web` reaches `hik-stream` through the in-cluster services `hik-stream:8888` (HLS) and `hik-stream:9000`
+(channel list); if you rename the releases, set `config.hlsOrigin` / `config.discoveryOrigin` on `hik-web`.
+Keep `hik-stream` at one replica.
+
+### Release workflow
+
+| Trigger | Result |
+|---|---|
+| push to `master` | images `phuthuycoding/hik-connect-proxy-viewer-{stream,web}` tagged `latest` and `sha-<commit>` |
+| push tag `vX.Y.Z` | images tagged `X.Y.Z` (+ `latest`), charts `hik-stream`/`hik-web` version `X.Y.Z` on GHCR |
+
+The only secrets the workflow needs are `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`; GHCR uses the built-in
+`GITHUB_TOKEN`. To publish your own fork, change `DOCKERHUB_NAMESPACE` in `.github/workflows/release.yaml`.
+
+## Configuration reference
+
+| Env (stream) | Default | |
+|---|---|---|
+| `HIK_DOMAIN` / `HIK_HOST` | | recorder DDNS hostname or IP |
+| `HIK_SDK_PORT` | `8000` | SDK port as mapped by the school |
+| `HIK_USER`, `HIK_PASS` | | recorder account |
+| `HIK_SUB` | `0` | `1` = sub stream |
+| `HCNETSDK_ZIP_URL` | | self-hosted SDK zip; empty = hikvision.com |
+| `DISCOVER_REFRESH_SECONDS` | `21600` | re-probe channels |
+
+| Env (web) | Default | |
+|---|---|---|
+| `CAM_PASSWORD`, `SESSION_SECRET` | | required |
+| `HLS_ORIGIN` | `http://stream:8888` | mediamtx HLS |
+| `DISCOVERY_ORIGIN` | `http://stream:9000` | discover.py |
+
+## Notes and gotchas
+
+- `NET_DVR_Logout` crashes the SDK (SIGBUS), so `pull_stream.py` and the discovery probe exit without
+  logging out; the recorder drops the session when the TCP connection closes.
+- HLS is fMP4 with 2 s segments (matching the recorder GOP) so iOS Safari plays it; expect 6 to 10 s latency.
+- A channel the account is not allowed to view fails with `Not enough privilege (code: 2)` in the stream logs
+  and is simply left out of the grid.
+
+## Hướng dẫn nhanh (tiếng Việt)
+
+1. `cp .env.example .env`, điền tài khoản đầu ghi trường cấp (tên miền, cổng SDK, user, pass), mật khẩu cho
+   gia đình và `SESSION_SECRET` ngẫu nhiên.
+2. `docker compose up -d --build`, mở `http://localhost:8080`, nhập mật khẩu, thêm vào màn hình chính.
+3. Lên k3s: chạy tay hai lệnh `helm upgrade --install` ở mục "Deploy on Kubernetes" với giá trị riêng.
+   Repo chỉ build image và chart, không chứa gì của cluster nhà mình.
+
+## Disclaimer
+
+This project was written for **personal use**: a parent watching the classroom cameras that the school
+deliberately shared with them. Use it only with accounts and devices you are explicitly authorized to access,
+and follow the school's rules and your local privacy laws. Do not redistribute the video, and do not share the
+family password beyond your household.
+
+The software is provided "as is", without warranty of any kind (see LICENSE). The author is not affiliated
+with Hikvision. Hikvision's Device Network SDK is proprietary, is not part of this repository or of the
+published images, and is downloaded by you from hikvision.com under Hikvision's own terms. Hikvision may
+change or remove that download at any time; use `HCNETSDK_ZIP_URL` or `apps/stream/sdk/` if it does.
+
+**Miễn trừ trách nhiệm.** Dự án phục vụ mục đích cá nhân: phụ huynh xem camera lớp học mà nhà trường đã chủ
+động cấp quyền. Chỉ dùng với tài khoản và thiết bị mà bạn được phép truy cập, tuân thủ quy định của trường và
+pháp luật về quyền riêng tư. Không phát tán video, không chia sẻ mật khẩu ra ngoài gia đình. Phần mềm cung cấp
+nguyên trạng, không bảo đảm, tác giả không chịu trách nhiệm cho việc sử dụng sai mục đích. Tác giả không liên
+quan tới Hikvision; SDK của Hikvision là phần mềm độc quyền, người dùng tự tải từ hikvision.com theo điều khoản
+của Hikvision.
+
+## License
+
+MIT (see LICENSE). Hikvision's Device Network SDK is proprietary and downloaded separately from hikvision.com.

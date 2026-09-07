@@ -1,0 +1,96 @@
+# Default values for hik-web. Override per environment with --set / -f my-values.yaml.
+
+replicaCount: 1
+
+image:
+  # Public image on Docker Hub, built by .github/workflows/release.yaml
+  repository: docker.io/phuthuycoding/hik-connect-proxy-viewer-web
+  pullPolicy: Always
+  tag: ""
+
+# e.g. --set imagePullSecrets[0].name=my-registry-secret
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}
+  name: ""
+
+config:
+  # Service of the hik-stream release in the same namespace
+  hlsOrigin: "http://hik-stream:8888"
+  discoveryOrigin: "http://hik-stream:9000"
+  # REQUIRED at install time (helm fails if empty); never commit real values
+  #   --set config.camPassword=... --set config.sessionSecret=...
+  camPassword: ""
+  # Random 64-hex string; changing it logs everyone out
+  sessionSecret: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  fsGroup: 1001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
+# /api/health needs no cookie
+livenessProbe:
+  enabled: true
+  httpGet:
+    path: /api/health
+    port: 8000
+  initialDelaySeconds: 5
+  periodSeconds: 15
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: true
+  httpGet:
+    path: /api/health
+    port: 8000
+  initialDelaySeconds: 3
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+ingress:
+  enabled: true
+  className: "traefik"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  # --set ingress.host=cam.example.com
+  host: cam.example.com
+  # TLS via cert-manager; set to "" to serve plain HTTP
+  tlsSecretName: hik-web-tls
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

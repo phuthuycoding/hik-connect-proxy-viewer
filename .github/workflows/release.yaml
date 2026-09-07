@@ -1,0 +1,99 @@
+name: Release
+
+# This repo only publishes artifacts. Deploying is your business: install the charts with your own values
+# (see deploy/). Nothing here knows about your cluster, domain or passwords.
+#
+#   push to master  -> images tagged `latest` and `sha-<commit>` on Docker Hub
+#   push tag vX.Y.Z -> images tagged `X.Y.Z` (+ latest) and Helm charts version X.Y.Z on GHCR (OCI)
+#
+# Secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN (access token with write scope). GHCR uses GITHUB_TOKEN.
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  DOCKERHUB_NAMESPACE: phuthuycoding
+  IMAGE_BASENAME: hik-connect-proxy-viewer
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [stream, web]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: docker.io/${{ env.DOCKERHUB_NAMESPACE }}/${{ env.IMAGE_BASENAME }}-${{ matrix.app }}
+          tags: |
+            type=sha
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v') }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apps/${{ matrix.app }}
+          # The SDK is x86_64 only; the web image could be multi-arch but one platform keeps it simple
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,scope=${{ matrix.app }},mode=max
+
+  charts:
+    # Charts are versioned by the git tag so that chart appVersion == image tag
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: images
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'latest'
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Lint, package and push
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          OWNER="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
+          mkdir -p dist
+          for CHART in apps/stream/chart apps/web/chart; do
+            helm lint "$CHART"
+            helm package "$CHART" --version "$VERSION" --app-version "$VERSION" -d dist
+          done
+          for PKG in dist/*.tgz; do
+            helm push "$PKG" "oci://ghcr.io/$OWNER/charts"
+          done
+          echo "## Published charts $VERSION" >> $GITHUB_STEP_SUMMARY
+          ls dist >> $GITHUB_STEP_SUMMARY

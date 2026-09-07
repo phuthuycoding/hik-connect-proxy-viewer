@@ -1,0 +1,45 @@
+services:
+  # mediamtx + pull_stream.py (SDK Hikvision): kéo stream đầu ghi theo nhu cầu, phát HLS nội bộ
+  stream:
+    build: ./apps/stream
+    platform: linux/amd64
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MTX_PUBLISH_BASE: "rtsp://puller:puller-secret@127.0.0.1:8554"
+    volumes:
+      - ./apps/stream/chart/files/mediamtx.yml:/mediamtx.yml:ro
+      # SDK Hikvision tải lúc khởi động lần đầu, giữ lại trong volume để không tải lại
+      - stream_sdk:/sdk
+
+  # Trang web: màn login, cookie phiên, trang 2 cam, proxy HLS về stream
+  web:
+    build: ./apps/web
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      HLS_ORIGIN: "http://stream:8888"
+      DISCOVERY_ORIGIN: "http://stream:9000"
+    depends_on:
+      - stream
+
+  # Cửa ra ngoài: HTTPS tự động khi SITE_ADDRESS là domain thật
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on:
+      - web
+
+volumes:
+  caddy_data:
+  stream_sdk:

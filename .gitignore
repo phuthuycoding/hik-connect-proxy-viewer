@@ -1,0 +1,14 @@
+# bí mật
+.env
+.dev.vars
+
+# Hikvision proprietary SDK binaries: never commit (see apps/stream/sdk/README.md)
+apps/stream/sdk/*
+!apps/stream/sdk/README.md
+
+# tạm
+__pycache__/
+node_modules/
+.wrangler/
+.playwright-mcp/
+IMG_*.png

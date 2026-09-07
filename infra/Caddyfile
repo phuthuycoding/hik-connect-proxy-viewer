@@ -1,0 +1,4 @@
+# SITE_ADDRESS lấy từ .env: ":80" khi chạy local, "cam.ten-mien.vn" trên server (tự HTTPS).
+{$SITE_ADDRESS} {
+	reverse_proxy web:8000
+}

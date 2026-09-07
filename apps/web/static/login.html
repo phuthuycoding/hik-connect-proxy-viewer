@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Camera lớp</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #111; color: #ddd; font-family: -apple-system, system-ui, sans-serif; }
+  .box { max-width: 320px; margin: 18vh auto 0; padding: 24px; background: #1c1c1c; border-radius: 10px; }
+  h1 { font-size: 20px; margin: 0 0 16px; }
+  label { display: block; font-size: 14px; margin-bottom: 6px; color: #aaa; }
+  input { width: 100%; box-sizing: border-box; font-size: 18px; padding: 10px 12px; border-radius: 6px;
+          border: 1px solid #444; background: #111; color: #eee; }
+  button { width: 100%; margin-top: 14px; font-size: 17px; padding: 11px; border: 0; border-radius: 6px;
+           background: #e0503c; color: #fff; cursor: pointer; }
+  .err { color: #ff7b6b; font-size: 14px; margin-top: 10px; display: none; }
+  .hint { color: #777; font-size: 12px; margin-top: 14px; }
+</style>
+</head>
+<body>
+<form class="box" method="post" action="/api/login">
+  <h1>Camera lớp</h1>
+  <label for="password">Mật khẩu</label>
+  <input id="password" name="password" type="password" autocomplete="current-password" autofocus required>
+  <button type="submit">Vào xem</button>
+  <div class="err" id="err">Sai mật khẩu, thử lại.</div>
+  <div class="hint">Nhập đúng một lần, máy này sẽ nhớ 30 ngày.</div>
+</form>
+<script>
+  if (new URLSearchParams(location.search).get("err")) {
+    document.getElementById("err").style.display = "block";
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+# mediamtx config. Keys not listed here keep mediamtx defaults.
+# Local: mounted into the container (docker compose restart stream). K8s: ConfigMap from the chart.
+logLevel: info
+
+authMethod: internal
+authInternalUsers:
+  # pull_stream.py (ffmpeg) publishes from inside the container only
+  - user: puller
+    pass: puller-secret
+    ips: ["127.0.0.1", "::1"]
+    permissions:
+      - action: publish
+        path: ~^ch\d+$
+  # readers: the web service on the internal network; port 8888 is never exposed publicly
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: read
+        path: ~^ch\d+$
+
+rtsp: yes
+rtspAddress: 127.0.0.1:8554
+rtspTransports: [tcp]
+hls: yes
+hlsVariant: fmp4
+hlsSegmentCount: 5
+# Recorders usually emit a keyframe every ~2s; match the GOP so iOS does not choke
+hlsSegmentDuration: 2s
+# After the last viewer leaves: muxer closes after this, then runOnDemandCloseAfter starts counting
+hlsMuxerCloseAfter: 20s
+webrtc: no
+rtmp: no
+srt: no
+
+paths:
+  # Any "ch<N>" path: the first viewer triggers a recorder login for channel N (pull_stream.py reads MTX_PATH),
+  # later viewers share the stream, and mediamtx sends SIGINT when nobody watches anymore.
+  # Channels the account may not view fail with "Not enough privilege"; discover.py lists the good ones.
+  ~^ch\d+$:
+    runOnDemand: python3 /app/pull_stream.py
+    runOnDemandRestart: yes
+    runOnDemandStartTimeout: 20s
+    runOnDemandCloseAfter: 15s
