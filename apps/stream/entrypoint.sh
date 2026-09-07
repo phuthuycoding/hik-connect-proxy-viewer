@@ -1,6 +1,7 @@
 #!/bin/sh
 # 1) Hikvision SDK is proprietary and not shipped in the image: fetch it into /sdk on first start.
-# 2) discover.py (channel list API) runs in the background, mediamtx stays PID 1.
+# 2) discover.py (channel list API) and timelapse.py (daily snapshots -> Telegram) run in the background,
+#    mediamtx stays PID 1.
 set -e
 
 if [ ! -f /sdk/lib/libhcnetsdk.so ]; then
@@ -8,4 +9,5 @@ if [ ! -f /sdk/lib/libhcnetsdk.so ]; then
 fi
 
 python3 /app/discover.py &
+python3 /app/timelapse.py &
 exec /usr/local/bin/mediamtx /mediamtx.yml

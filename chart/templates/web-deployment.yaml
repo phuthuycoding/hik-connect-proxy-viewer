@@ -61,6 +61,8 @@ spec:
               value: "http://{{ include "hcpv.streamName" . }}:8888"
             - name: DISCOVERY_ORIGIN
               value: "http://{{ include "hcpv.streamName" . }}:9000"
+            - name: TIMELAPSE_ORIGIN
+              value: "http://{{ include "hcpv.streamName" . }}:9001"
             - name: CAM_PASSWORD
               valueFrom:
                 secretKeyRef:

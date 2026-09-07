@@ -16,6 +16,10 @@ spec:
       targetPort: discovery
       protocol: TCP
       name: discovery
+    - port: 9001
+      targetPort: timelapse
+      protocol: TCP
+      name: timelapse
   selector:
     {{- include "hcpv.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: stream

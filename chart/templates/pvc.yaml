@@ -1,0 +1,17 @@
+{{- if and .Values.timelapse.enabled (not .Values.timelapse.storage.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "hcpv.streamName" . }}-data
+  labels:
+    {{- include "hcpv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: stream
+spec:
+  accessModes: ["ReadWriteOnce"]
+  {{- if .Values.timelapse.storage.storageClass }}
+  storageClassName: {{ .Values.timelapse.storage.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.timelapse.storage.size }}
+{{- end }}

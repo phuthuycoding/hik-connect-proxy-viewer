@@ -43,6 +43,9 @@ spec:
             - name: discovery
               containerPort: 9000
               protocol: TCP
+            - name: timelapse
+              containerPort: 9001
+              protocol: TCP
           startupProbe:
             tcpSocket:
               port: hls
@@ -86,6 +89,36 @@ spec:
             - name: HCNETSDK_ZIP_URL
               value: {{ .Values.stream.sdkZipUrl | quote }}
             {{- end }}
+            - name: TIMELAPSE_ENABLED
+              value: {{ ternary "1" "0" .Values.timelapse.enabled | quote }}
+            {{- if .Values.timelapse.enabled }}
+            - name: TIMELAPSE_TZ
+              value: {{ .Values.timelapse.timezone | quote }}
+            - name: TIMELAPSE_DAYS
+              value: {{ .Values.timelapse.days | quote }}
+            - name: TIMELAPSE_START
+              value: {{ .Values.timelapse.start | quote }}
+            - name: TIMELAPSE_END
+              value: {{ .Values.timelapse.end | quote }}
+            - name: TIMELAPSE_INTERVAL_MINUTES
+              value: {{ .Values.timelapse.intervalMinutes | quote }}
+            - name: TIMELAPSE_SEND_AT
+              value: {{ .Values.timelapse.sendAt | quote }}
+            - name: TIMELAPSE_FPS
+              value: {{ .Values.timelapse.fps | quote }}
+            - name: TIMELAPSE_CHANNELS
+              value: {{ .Values.timelapse.channels | quote }}
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hcpv.fullname" . }}-secrets
+                  key: telegram-bot-token
+            - name: TELEGRAM_CHAT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hcpv.fullname" . }}-secrets
+                  key: telegram-chat-id
+            {{- end }}
           volumeMounts:
             - name: mediamtx-config
               mountPath: /mediamtx.yml
@@ -93,12 +126,21 @@ spec:
               readOnly: true
             - name: sdk
               mountPath: /sdk
+            - name: data
+              mountPath: /data
       volumes:
         - name: mediamtx-config
           configMap:
             name: {{ include "hcpv.streamName" . }}-config
         - name: sdk
           {{- toYaml .Values.stream.sdkVolume | nindent 10 }}
+        - name: data
+          {{- if .Values.timelapse.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.timelapse.storage.existingClaim | default (printf "%s-data" (include "hcpv.streamName" .)) }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
       {{- with .Values.stream.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

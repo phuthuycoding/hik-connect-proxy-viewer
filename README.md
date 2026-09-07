@@ -26,6 +26,10 @@ never re-encoded.
 - **PWA with player controls.** "Add to Home Screen" on iOS/Android opens it like an app. Each tile has
   pause/play, back-to-live, snapshot, picture-in-picture and full screen (or double-tap); a LIVE/behind badge
   shows latency. Coming back from the background re-syncs to live, and a watchdog reconnects stalled streams.
+- **Daily time-lapse to Telegram (optional).** During school hours the stream service opens each channel for
+  ~20 s every 5 minutes, grabs one time-stamped frame and closes again (almost no bandwidth). At a set time it
+  stitches the day into one short MP4 per camera, sends it to your Telegram group and deletes the frames. The
+  web app shows today's frames as a scrubbable timeline.
 - **Nothing proprietary in git or in the images.** Hikvision's SDK is downloaded from hikvision.com when the
   stream container starts (or from a URL you host).
 
@@ -119,6 +123,32 @@ Then open `https://<ingress.host>`, type the family password, and on a phone use
 | `ingress.enabled=false` | | expose the `*-web` Service yourself |
 | `stream.image.tag`, `web.image.tag` | chart appVersion | pin or use `latest` |
 
+### Daily time-lapse to Telegram
+
+Create a bot with @BotFather, add it to your family group, find the group's chat id (e.g. via
+`https://api.telegram.org/bot<TOKEN>/getUpdates` after a message), then:
+
+```bash
+helm upgrade cam oci://ghcr.io/phuthuycoding/charts/hik-connect-proxy-viewer --version <ver> \
+  --namespace cam --reset-then-reuse-values \
+  --set timelapse.enabled=true \
+  --set timelapse.telegram.botToken=123456:ABC... \
+  --set timelapse.telegram.chatId=-1001234567890
+```
+
+| Value | Default | Purpose |
+|---|---|---|
+| `timelapse.days` | `"1,2,3,4,5"` | ISO weekdays to capture (1 = Monday) |
+| `timelapse.start`, `timelapse.end` | `08:00`, `17:00` | capture window (local time, `timelapse.timezone`) |
+| `timelapse.intervalMinutes` | `"5"` | one frame per channel every N minutes |
+| `timelapse.sendAt` | `17:10` | build the MP4s and send them; frames are deleted after a successful send |
+| `timelapse.fps` | `"4"` | time-lapse speed (110 frames at 4 fps = 27 s) |
+| `timelapse.channels` | `""` | restrict to some channels, e.g. `"2,7"`; empty = all discovered |
+| `timelapse.storage.size` | `1Gi` | PVC for the day's frames (a few MB per camera per day) |
+
+A failed send is retried every 30 minutes and the day is kept for up to 3 days; a day with no frames at all
+(recorder offline) produces a text message instead of a video.
+
 ### Release workflow
 
 | Trigger | Result |
@@ -139,12 +169,15 @@ The only secrets the workflow needs are `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKE
 | `HIK_SUB` | `0` | `1` = sub stream |
 | `HCNETSDK_ZIP_URL` | | self-hosted SDK zip; empty = hikvision.com |
 | `DISCOVER_REFRESH_SECONDS` | `21600` | re-probe channels |
+| `TIMELAPSE_ENABLED`, `TIMELAPSE_TZ`, `TIMELAPSE_DAYS`, `TIMELAPSE_START`, `TIMELAPSE_END`, `TIMELAPSE_INTERVAL_MINUTES`, `TIMELAPSE_SEND_AT`, `TIMELAPSE_FPS`, `TIMELAPSE_CHANNELS` | see chart | daily time-lapse schedule |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | | where the time-lapse goes |
 
 | Env (web) | Default | |
 |---|---|---|
 | `CAM_PASSWORD`, `SESSION_SECRET` | | required |
 | `HLS_ORIGIN` | `http://stream:8888` | mediamtx HLS |
 | `DISCOVERY_ORIGIN` | `http://stream:9000` | discover.py |
+| `TIMELAPSE_ORIGIN` | `http://stream:9001` | timelapse.py (today's frames) |
 
 ## Notes and gotchas
 

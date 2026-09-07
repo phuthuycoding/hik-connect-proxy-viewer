@@ -93,3 +93,22 @@ svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-widt
 
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+/* Hôm nay: ảnh chụp trong ngày */
+.today { position: fixed; inset: 0; top: 54px; background: var(--bg); z-index: 15; overflow: auto;
+  padding: 12px 12px calc(12px + var(--safe-b)); }
+.today-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.today-title { font-weight: 600; font-size: 16px; }
+.today-sub { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.day-cam { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; margin-bottom: 12px; }
+.day-cam .day-cam-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 14px; }
+.day-cam .day-cam-head b { font-weight: 600; }
+.day-cam .day-cam-head .n { color: var(--muted); font-size: 12.5px; }
+.day-cam .preview { position: relative; background: #000; border-radius: 8px; overflow: hidden; aspect-ratio: 16 / 9; }
+.day-cam .preview img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.day-cam .preview .t { position: absolute; right: 8px; bottom: 6px; font-size: 12px; padding: 2px 7px; border-radius: 6px; background: rgba(0,0,0,.55); }
+.day-cam input[type=range] { width: 100%; margin: 10px 0 6px; accent-color: var(--accent); }
+.day-cam .strip { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.day-cam .strip img { height: 54px; border-radius: 5px; border: 2px solid transparent; flex: 0 0 auto; cursor: pointer; opacity: .85; }
+.day-cam .strip img.on { border-color: var(--accent); opacity: 1; }
+.today .empty { padding: 40px 20px; }

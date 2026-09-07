@@ -12,6 +12,8 @@ services:
       - ./chart/files/mediamtx.yml:/mediamtx.yml:ro
       # SDK Hikvision tải lúc khởi động lần đầu, giữ lại trong volume để không tải lại
       - stream_sdk:/sdk
+      # Ảnh chụp trong ngày cho time-lapse (xoá sau khi gửi Telegram)
+      - stream_data:/data
 
   # Trang web: màn login, cookie phiên, trang 2 cam, proxy HLS về stream
   web:
@@ -22,6 +24,7 @@ services:
     environment:
       HLS_ORIGIN: "http://stream:8888"
       DISCOVERY_ORIGIN: "http://stream:9000"
+      TIMELAPSE_ORIGIN: "http://stream:9001"
     depends_on:
       - stream
 
@@ -43,3 +46,4 @@ services:
 volumes:
   caddy_data:
   stream_sdk:
+  stream_data:

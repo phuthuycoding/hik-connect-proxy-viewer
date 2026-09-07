@@ -36,6 +36,7 @@
   // ---------- Views ----------
   function showLogin(message) {
     stopPlayers();
+    closeToday();
     appView.hidden = true;
     loginView.hidden = false;
     $("err").textContent = message || "";
@@ -46,6 +47,7 @@
     loginView.hidden = true;
     appView.hidden = false;
     await loadCameras();
+    checkToday();
   }
 
   async function loadCameras() {
@@ -220,6 +222,7 @@
 
     start();
     return {
+      channel: cam.channel, name: cam.name,
       resume() { if (state.userPaused) return; if (state.hls) { state.hls.startLoad(); goLive(); } else start(); },
       destroy() { clearTimeout(state.retry); clearInterval(state.watchdog); if (state.hls) state.hls.destroy(); video.removeAttribute("src"); video.load(); },
     };
@@ -241,6 +244,76 @@
   });
   window.addEventListener("pageshow", (e) => { if (e.persisted) resumeAll(); });
   window.addEventListener("online", resumeAll);
+
+  // ---------- Hôm nay: ảnh chụp trong ngày cho time-lapse ----------
+  const todayPanel = $("today");
+  let todayTimer = null;
+
+  async function checkToday() {
+    try {
+      const info = await api("/api/timelapse/today");
+      $("todayBtn").hidden = !info.enabled;
+    } catch (_) { $("todayBtn").hidden = true; }
+  }
+
+  function renderToday(info) {
+    $("todayDate").textContent = info.date.split("-").reverse().join("/");
+    const w = info.window;
+    $("todaySub").textContent = w.enabled === false ? "" :
+      `Chụp mỗi ${w.intervalMinutes} phút, ${w.start} đến ${w.end}` + (w.telegram ? `, gửi video Telegram lúc ${w.sendAt}` : "");
+    const body = $("todayBody");
+    const names = Object.fromEntries(players.map((p) => [String(p.channel), p.name]));
+    const entries = Object.entries(info.channels).filter(([, slots]) => slots.length);
+    if (!entries.length) {
+      body.innerHTML = '<div class="empty">Chưa có ảnh nào hôm nay. Ảnh sẽ xuất hiện trong khung giờ chụp.</div>';
+      return;
+    }
+    body.innerHTML = "";
+    for (const [ch, slots] of entries) {
+      const card = document.createElement("div");
+      card.className = "day-cam";
+      const url = (slot) => `/api/timelapse/frame/${info.date}/ch${ch}/${slot}.jpg`;
+      const last = slots.length - 1;
+      card.innerHTML = `
+        <div class="day-cam-head"><b>${names[ch] || "Cam " + ch}</b><span class="n">${slots.length} ảnh</span></div>
+        <div class="preview"><img alt=""><span class="t"></span></div>
+        <input type="range" min="0" max="${last}" value="${last}">
+        <div class="strip"></div>`;
+      const img = card.querySelector(".preview img");
+      const t = card.querySelector(".preview .t");
+      const range = card.querySelector("input");
+      const strip = card.querySelector(".strip");
+      const show = (i) => {
+        img.src = url(slots[i]); t.textContent = slots[i].replace("-", ":"); range.value = i;
+        strip.querySelectorAll("img").forEach((el, k) => el.classList.toggle("on", k === i));
+      };
+      slots.forEach((slot, i) => {
+        const th = document.createElement("img");
+        th.src = url(slot); th.loading = "lazy"; th.alt = slot;
+        th.addEventListener("click", () => show(i));
+        strip.appendChild(th);
+      });
+      range.addEventListener("input", () => show(+range.value));
+      show(last);
+      body.appendChild(card);
+      strip.scrollLeft = strip.scrollWidth;
+    }
+  }
+
+  async function openToday() {
+    todayPanel.hidden = false;
+    $("todayBody").innerHTML = '<div class="empty">Đang tải...</div>';
+    const load = async () => {
+      try { renderToday(await api("/api/timelapse/today")); }
+      catch (err) { if (err.message === "unauthorized") return showLogin(); $("todayBody").innerHTML = '<div class="empty">Không tải được.</div>'; }
+    };
+    await load();
+    clearInterval(todayTimer);
+    todayTimer = setInterval(load, 60000);
+  }
+  function closeToday() { todayPanel.hidden = true; clearInterval(todayTimer); }
+  $("todayBtn").addEventListener("click", () => (todayPanel.hidden ? openToday() : closeToday()));
+  $("todayClose").addEventListener("click", closeToday);
 
   // ---------- Top bar ----------
   $("refreshBtn").addEventListener("click", loadCameras);
