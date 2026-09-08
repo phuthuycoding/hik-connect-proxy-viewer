@@ -69,6 +69,26 @@ stream:
       drop:
         - ALL
 
+# Daily time-lapse: during school hours grab one frame per channel every few minutes (the stream is opened
+# only for ~20 s each time), at sendAt build one MP4 per channel and send it to Telegram, then delete the day.
+timelapse:
+  enabled: false
+  timezone: "Asia/Ho_Chi_Minh"
+  days: "1,2,3,4,5"          # ISO weekdays, 1 = Monday
+  start: "08:00"
+  end: "17:00"
+  intervalMinutes: "5"
+  sendAt: "17:10"
+  fps: "4"
+  channels: ""               # e.g. "2,7"; empty = every channel discover.py found
+  telegram:
+    botToken: ""             # REQUIRED when enabled; pass with --set timelapse.telegram.botToken=...
+    chatId: ""               # REQUIRED when enabled (group or user id)
+  storage:
+    size: 1Gi
+    storageClass: ""
+    existingClaim: ""
+
 # Web app: login, session cookie, camera grid, HLS proxy
 web:
   password: ""        # REQUIRED: the family password typed on the login screen

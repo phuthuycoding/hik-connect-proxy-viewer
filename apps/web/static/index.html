@@ -34,6 +34,9 @@
     <span class="title">Camera lớp</span>
     <span class="count" id="count"></span>
     <span class="spacer"></span>
+    <button class="icon-btn" id="todayBtn" title="Ảnh chụp hôm nay" hidden>
+      <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+    </button>
     <button class="icon-btn" id="layoutBtn" title="Đổi bố cục">
       <svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/></svg>
     </button>
@@ -45,6 +48,18 @@
     </button>
   </header>
   <main class="grid" id="grid"></main>
+  <section class="today" id="today" hidden>
+    <div class="today-head">
+      <div>
+        <div class="today-title">Hôm nay <span id="todayDate"></span></div>
+        <div class="today-sub" id="todaySub"></div>
+      </div>
+      <button class="icon-btn" id="todayClose" title="Đóng">
+        <svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div id="todayBody"></div>
+  </section>
 </div>
 
 <script src="/static/hls.min.js"></script>

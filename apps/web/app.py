@@ -2,7 +2,8 @@
 """Web xem cam (SPA + PWA): login mật khẩu, cookie phiên ký HMAC, danh sách kênh tự dò, proxy HLS về mediamtx.
 
 Env: CAM_PASSWORD (mật khẩu gia đình), SESSION_SECRET (khoá ký cookie),
-HLS_ORIGIN (mặc định http://stream:8888), DISCOVERY_ORIGIN (mặc định http://stream:9000), PORT (mặc định 8000).
+HLS_ORIGIN (mặc định http://stream:8888), DISCOVERY_ORIGIN (mặc định http://stream:9000),
+TIMELAPSE_ORIGIN (mặc định http://stream:9001), PORT (mặc định 8000).
 """
 
 import asyncio
@@ -25,6 +26,7 @@ SESSION_TTL_SECONDS = 30 * 24 * 3600
 PUBLIC_PATHS = {"/", "/index.html", "/manifest.webmanifest", "/sw.js", "/api/login", "/api/session", "/api/health"}
 PUBLIC_PREFIXES = ("/static/",)
 HLS_PATH_RE = re.compile(r"^ch\d+/[A-Za-z0-9_.-]+$")
+FRAME_PATH_RE = re.compile(r"^\d{4}-\d{2}-\d{2}/ch\d+/\d{2}-\d{2}\.jpg$")
 
 
 def sign(secret: str, data: str) -> str:
@@ -118,6 +120,25 @@ async def api_cameras(request: web.Request) -> web.Response:
         raise web.HTTPBadGateway(text=f"không gọi được discovery: {err}") from err
 
 
+async def api_timelapse_today(request: web.Request) -> web.Response:
+    """Ảnh chụp trong ngày và cấu hình time-lapse, do timelapse.py trong service stream phục vụ."""
+    client: ClientSession = request.app["client"]
+    try:
+        async with client.get(f"{request.app['timelapse_origin']}/today") as upstream:
+            if upstream.status != 200:
+                raise web.HTTPBadGateway(text=f"timelapse trả {upstream.status}")
+            return web.json_response(await upstream.json())
+    except ClientError as err:
+        raise web.HTTPBadGateway(text=f"không gọi được timelapse: {err}") from err
+
+
+async def timelapse_frame(request: web.Request) -> web.StreamResponse:
+    path = request.match_info["path"]
+    if not FRAME_PATH_RE.match(path):
+        raise web.HTTPNotFound()
+    return await proxy_stream(request, f"{request.app['timelapse_origin']}/frames/{path}", cache="private, max-age=3600")
+
+
 async def hls_proxy(request: web.Request) -> web.StreamResponse:
     """Chuyển tiếp playlist và segment HLS từ mediamtx, giữ nguyên path và query (?session=...)."""
     path = request.match_info["path"]
@@ -126,14 +147,17 @@ async def hls_proxy(request: web.Request) -> web.StreamResponse:
     upstream_url = f"{request.app['hls_origin']}/{path}"
     if request.query_string:
         upstream_url += f"?{request.query_string}"
+    return await proxy_stream(request, upstream_url, cache="no-store")
 
+
+async def proxy_stream(request: web.Request, upstream_url: str, cache: str) -> web.StreamResponse:
     client: ClientSession = request.app["client"]
     async with client.get(upstream_url) as upstream:
         response = web.StreamResponse(status=upstream.status)
         content_type = upstream.headers.get("Content-Type")
         if content_type:
             response.content_type = content_type
-        response.headers["Cache-Control"] = "no-store"
+        response.headers["Cache-Control"] = cache
         await response.prepare(request)
         async for chunk in upstream.content.iter_chunked(64 * 1024):
             await response.write(chunk)
@@ -160,6 +184,7 @@ def create_app() -> web.Application:
     app["session_secret"] = session_secret
     app["hls_origin"] = os.environ.get("HLS_ORIGIN", "http://stream:8888").rstrip("/")
     app["discovery_origin"] = os.environ.get("DISCOVERY_ORIGIN", "http://stream:9000").rstrip("/")
+    app["timelapse_origin"] = os.environ.get("TIMELAPSE_ORIGIN", "http://stream:9001").rstrip("/")
     app.on_startup.append(on_startup)
     app.on_cleanup.append(on_cleanup)
 
@@ -171,6 +196,8 @@ def create_app() -> web.Application:
     app.router.add_post("/api/login", api_login)
     app.router.add_post("/api/logout", api_logout)
     app.router.add_get("/api/cameras", api_cameras)
+    app.router.add_get("/api/timelapse/today", api_timelapse_today)
+    app.router.add_get("/api/timelapse/frame/{path:.*}", timelapse_frame)
     app.router.add_get("/hls/{path:.*}", hls_proxy)
     app.router.add_static("/static/", STATIC_DIR)
     return app
