@@ -19,6 +19,34 @@ from aiohttp import ClientError, ClientSession, ClientTimeout, web
 
 log = logging.getLogger("web")
 
+
+def init_tracing() -> None:
+    """OTel → Tempo. Fail-open: thiếu env/lỗi exporter chỉ warn, không chặn app."""
+    if not os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
+        return
+    try:
+        from opentelemetry import trace
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+        from opentelemetry.instrumentation.aiohttp_server import AioHttpServerInstrumentor
+        from opentelemetry.sdk.resources import Resource, SERVICE_NAME
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+        provider = TracerProvider(resource=Resource({SERVICE_NAME: os.environ.get("OTEL_SERVICE_NAME", "cam-web")}))
+        provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
+        trace.set_tracer_provider(provider)
+        AioHttpServerInstrumentor().instrument()
+
+        class TraceFilter(logging.Filter):
+            def filter(self, record):
+                sc = trace.get_current_span().get_span_context()
+                record.trace_id = format(sc.trace_id, "032x") if sc.is_valid else ""
+                return True
+
+        logging.getLogger().addFilter(TraceFilter())
+    except Exception as e:  # noqa: BLE001 — tracing không bao giờ chặn app
+        log.warning("otel disabled: %s", e)
+
 STATIC_DIR = Path(__file__).parent / "static"
 COOKIE_NAME = "cam_session"
 SESSION_TTL_SECONDS = 30 * 24 * 3600
@@ -204,5 +232,6 @@ def create_app() -> web.Application:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(trace_id)s: %(message)s")
+    init_tracing()
     web.run_app(create_app(), host="0.0.0.0", port=int(os.environ.get("PORT", "8000")))

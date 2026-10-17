@@ -1,1 +1,4 @@
 aiohttp==3.11.18
+opentelemetry-sdk==1.34.1
+opentelemetry-exporter-otlp-proto-grpc==1.34.1
+opentelemetry-instrumentation-aiohttp-server==0.55b1
