@@ -56,6 +56,11 @@ spec:
           env:
             - name: PORT
               value: "8000"
+            # OTel → Tempo (homelab observability contract)
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://tempo.observability.svc.cluster.local:4317"
+            - name: OTEL_SERVICE_NAME
+              value: "cam-web"
             # Wired to the stream Service of this same release
             - name: HLS_ORIGIN
               value: "http://{{ include "hcpv.streamName" . }}:8888"
